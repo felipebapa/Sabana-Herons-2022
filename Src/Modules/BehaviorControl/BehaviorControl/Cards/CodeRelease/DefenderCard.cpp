@@ -65,7 +65,7 @@ class DefenderCard : public DefenderCardBase
 
   option
   {
-    theActivitySkill(BehaviorStatus::defender);
+    theActivitySkill(BehaviorStatus::Defender);
 
     initial_state(start)
     {
