@@ -76,7 +76,7 @@ class KeeperCard : public KeeperCardBase
       action
       {
         theLookForwardSkill();
-		theKeyFrameArmsSkill(ArmKeyFrameRequest::upKeeper, true);
+		//theKeyFrameArmsSkill(ArmKeyFrameRequest::upKeeper, true);
 		
         theStandSkill();
 		
