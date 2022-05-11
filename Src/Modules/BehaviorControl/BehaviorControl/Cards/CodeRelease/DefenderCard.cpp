@@ -13,8 +13,8 @@
 #include "Representations/BehaviorControl/Skills.h"
 #include "Representations/Configuration/FieldDimensions.h"
 #include "Representations/Modeling/RobotPose.h"
-#include "Representations/BehaviorControl/Libraries/LibCodeRelease.h"
 #include "Representations/MotionControl/ArmMotionRequest.h"
+#include "Representations/MotionControl/ArmKeyFrameRequest.h"
 #include "Tools/BehaviorControl/Framework/Card/Card.h"
 #include "Tools/BehaviorControl/Framework/Card/CabslCard.h"
 #include "Tools/Math/BHMath.h"
@@ -27,10 +27,10 @@ CARD(DefenderCard,
   CALLS(Stand),
   CALLS(WalkAtRelativeSpeed),
   CALLS(WalkToTarget),
+  CALLS(KeyFrameArms),
   REQUIRES(FieldBall),
   REQUIRES(FieldDimensions),
   REQUIRES(RobotPose),
-  REQUIRES(LibCodeRelease),
   DEFINES_PARAMETERS(
   {,
     (float)(0.8f) walkSpeed,
@@ -48,6 +48,16 @@ CARD(DefenderCard,
     (Rangef)({20.f, 50.f}) ballOffsetYRange,
     (int)(10) minKickWaitTime,
     (int)(3000) maxKickWaitTime,
+    (bool)(false) theRivalHasTheBall,
+    (bool)(false) theRivalIsCloserToTheBall,
+    (bool)(false) closerToTheBall,
+    (int)(0) numberOfDefenders,
+    (bool)(false) defenderLefter,
+    (bool)(false) defenderRighter,
+    (bool)(false) shootToGoal,
+    (int)(0) numberOfDefences,
+    FUNCTION(Vector2f()) bestTeammateForPass;
+    FUNCTION(int()) getNumberWithinRole;
   }),
 });
 
@@ -104,11 +114,11 @@ class DefenderCard : public DefenderCardBase
       transition
       {
         if(!theFieldBall.ballWasSeen(ballNotSeenTimeout))
-          goto searchForBall;
-        if(!theLibCodeRelease.theRivalIsCloserToTheBall && theLibCodeRelease.closerToTheBall)
+          goto turnToBall;
+        if(!theRivalIsCloserToTheBall && closerToTheBall)
           goto clearingBall;
-        if((theLibCodeRelease.theRivalIsCloserToTheBall && theFieldBall.positionRelative.norm() < (400.f) && theLibCodeRelease.closerToTheBall)
-        || (theLibCodeRelease.numberOfDefences == 1 && state_time > 10000 && theLibCodeRelease.theRivalIsCloserToTheBall))
+        if((theRivalIsCloserToTheBall && theFieldBall.positionRelative.norm() < (400.f) && closerToTheBall)
+        || (numberOfDefences == 1 && state_time > 10000 && theRivalIsCloserToTheBall))
           goto attackForDefense;
         if(std::abs(theFieldBall.positionRelative.x()) > 500)
           goto followFromDistance;
@@ -118,13 +128,22 @@ class DefenderCard : public DefenderCardBase
       {
         float ballWeight = 1.2f;
 
-        if(theLibCodeRelease.closerToTheBall && state_time > 800 && theLibCodeRelease.numberOfDefenders > 1 && theLibCodeRelease.theRivalIsCloserToTheBall)
-          if(std::abs(theFieldBall.positionRelative.y()) < -5 && theLibCodeRelease.defenderLefter)
+        if(closerToTheBall && state_time > 800 && numberOfDefenders > 1 && theRivalIsCloserToTheBall){
+          if(std::abs(theFieldBall.positionRelative.y()) < -5 && defenderLefter)
             ballWeight = (float)(ballWeight + (state_time / 1000));
-          if(std::abs(theFieldBall.positionRelative.y()) > 5 && theLibCodeRelease.defenderRighter)
+          if(std::abs(theFieldBall.positionRelative.y()) > 5 && defenderRighter)
             ballWeight = (float)(ballWeight + (state_time / 1000));
+        }    
+        //if(defenderLefter){
+          //theKeyFrameArmsSkill(ArmKeyFrameRequest::back);
+        //}  
+        //else if(defenderRighter){
+         // theKeyFrameArmsSkill(ArmKeyFrameRequest::back);
+        //}
+        //else
+          //theKeyFrameArmsSkill(ArmKeyFrameRequest::back);
 
-        theLookForwardSkill();
+        goto searchForBall;
       }
     }
 
@@ -134,17 +153,18 @@ class DefenderCard : public DefenderCardBase
       {
         if(theFieldBall.ballWasSeen(ballNotSeenTimeout))
           goto searchForBall;
-        if(theLibCodeRelease.theRivalIsCloserToTheBall && theLibCodeRelease.numberOfDefences > 1 && std::abs(theFieldBall.positionRelative.norm()) < 400.f && theLibCodeRelease.closerToTheBall)
+        if(theRivalIsCloserToTheBall && numberOfDefences > 1 && std::abs(theFieldBall.positionRelative.norm()) < 400.f && closerToTheBall)
           goto attackForDefense;
         if(std::abs(theFieldBall.positionRelative.norm()) < 500.f)
           goto shoot;
-        if(!theLibCodeRelease.closerToTheBall || theLibCodeRelease.theRivalIsCloserToTheBall)
+        if(!closerToTheBall || theRivalIsCloserToTheBall)
           goto geneticDefense;
       }
 
       action 
       {
-
+        //theKeyFrameArmsSkill(ArmKeyFrameRequest::back);
+        goto searchForBall;
       }
     }
 
@@ -152,21 +172,28 @@ class DefenderCard : public DefenderCardBase
     {
       transition
       {
-        
+        if(!theFieldBall.ballWasSeen(ballNotSeenTimeout) && !closerToTheBall){
+          theActivitySkill(BehaviorStatus::Defender);
+          goto geneticDefense;
+        }
+      }
+      action
+      {
       }
     }
 
     state(shoot) 
     {
+      const Angle angleToGoal = calcAngleToGoal();
       transition
       {
         if(theFieldBall.ballWasSeen(ballNotSeenTimeout))
           goto searchForBall;
-        if(theLibCodeRelease.theRivalIsCloserToTheBall && theLibCodeRelease.numberOfDefences > 1 && std::abs(theFieldBall.positionRelative.norm()) < 400.f && theLibCodeRelease.closerToTheBall)
+        if(theRivalIsCloserToTheBall && numberOfDefences > 1 && std::abs(theFieldBall.positionRelative.norm()) < 400.f && closerToTheBall)
           goto attackForDefense;
         if(std::abs(theFieldBall.positionRelative.norm()) > 600)
           goto geneticDefense;
-        if(!theLibCodeRelease.closerToTheBall)
+        if(!closerToTheBall)
           goto geneticDefense;
       }
 
@@ -174,8 +201,8 @@ class DefenderCard : public DefenderCardBase
       {
         Vector2f target = Vector2f(4500.f, 0.f);
 
-        if(!theLibCodeRelease.shootToGoal && false)
-          target = theLibCodeRelease.bestTeammateForPass();
+        theLookForwardSkill();  
+        theInWalkKickSkill(WalkKickVariant(WalkKicks::forward, Legs::left), Pose2f(angleToGoal, theFieldBall.positionRelative.x() - ballOffsetX, theFieldBall.positionRelative.y() - ballOffsetY));
       }
     }
 
@@ -184,10 +211,10 @@ class DefenderCard : public DefenderCardBase
       transition
       {
         if(theFieldBall.ballWasSeen(ballNotSeenTimeout))
-          goto searchForBall;
-        if(theLibCodeRelease.theRivalIsCloserToTheBall && theLibCodeRelease.numberOfDefences > 1 && std::abs(theFieldBall.positionRelative.norm()) < 400.f && theLibCodeRelease.closerToTheBall)
+          goto turnToBall;
+        if(theRivalIsCloserToTheBall && numberOfDefences > 1 && std::abs(theFieldBall.positionRelative.norm()) < 400.f && closerToTheBall)
           goto attackForDefense;
-        if(!theLibCodeRelease.theRivalIsCloserToTheBall && theLibCodeRelease.closerToTheBall)
+        if(!theRivalIsCloserToTheBall && closerToTheBall)
           goto clearingBall;
         if(std::abs(theFieldBall.positionRelative.x()) < 450)
           goto geneticDefense;
@@ -199,16 +226,16 @@ class DefenderCard : public DefenderCardBase
 
         Vector2f going2 = {-2000.f,std::abs(theFieldBall.positionRelative.y())};
 
-        if(theLibCodeRelease.numberOfDefenders==3){
-          if(theLibCodeRelease.defenderLefter && theRobotPose.translation.y() < 2700 && theRobotPose.translation.y() > -1700)
+        if(numberOfDefenders==3){
+          if(defenderLefter && theRobotPose.translation.y() < 2700 && theRobotPose.translation.y() > -1700)
             going2 = {-3000.f,std::abs(theFieldBall.positionRelative.y()) + 700.f};
-          else if(theLibCodeRelease.defenderRighter && theRobotPose.translation.y() > -2700 && theRobotPose.translation.y() < 1700)
+          else if(defenderRighter && theRobotPose.translation.y() > -2700 && theRobotPose.translation.y() < 1700)
             going2 = {-3000.f, std::abs(theFieldBall.positionRelative.y()) - 700.f};
         }
         else {
-          if(theLibCodeRelease.defenderLefter && theRobotPose.translation.y() < 2700 && theRobotPose.translation.y() > -1700)
+          if(defenderLefter && theRobotPose.translation.y() < 2700 && theRobotPose.translation.y() > -1700)
           going2 = {-2000.f,std::abs(theFieldBall.positionRelative.y())};
-        else if(theLibCodeRelease.defenderRighter && theRobotPose.translation.y() > -2700 && theRobotPose.translation.y() < 1700)
+        else if(defenderRighter && theRobotPose.translation.y() > -2700 && theRobotPose.translation.y() < 1700)
           going2 = {-3000.f, std::abs(theFieldBall.positionRelative.y()) - 700.f};
         }
       }
@@ -243,12 +270,12 @@ class DefenderCard : public DefenderCardBase
       {
         Vector2f going2;
 
-        if(theLibCodeRelease.numberOfDefenders == 1)
+        if(numberOfDefenders == 1)
           going2 = (Vector2f){-2400,0};
-        else if(theLibCodeRelease.numberOfDefenders == 2)
-          going2 = (theLibCodeRelease.getNumberWithinRole() == 2) ? (Vector2f){-2400,500} : (Vector2f){-2400,-500};
-        else if(theLibCodeRelease.numberOfDefenders == 3)
-          going2 = (theLibCodeRelease.getNumberWithinRole() == 2) ? (Vector2f){-2400,700} : (theLibCodeRelease.getNumberWithinRole() == 3) ? (Vector2f){-2400,-700} : (Vector2f){-2400,0};
+        //else if(numberOfDefenders == 2)
+         // going2 = (getNumberWithinRole() == 2) ? (Vector2f){-2400,500} : (Vector2f){-2400,-500};
+        //else if(numberOfDefenders == 3)
+          //going2 = (getNumberWithinRole() == 2) ? (Vector2f){-2400,700} : (getNumberWithinRole() == 3) ? (Vector2f){-2400,-700} : (Vector2f){-2400,0};
       }
     }
 
@@ -313,6 +340,9 @@ class DefenderCard : public DefenderCardBase
       {
         if(theFieldBall.ballWasSeen())
           goto turnToBall;
+        if(!theFieldBall.ballWasSeen(ballNotSeenTimeout))
+          goto goBackHome;  
+          
       }
 
       action
