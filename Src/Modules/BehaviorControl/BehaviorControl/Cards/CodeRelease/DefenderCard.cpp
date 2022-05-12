@@ -107,139 +107,7 @@ class DefenderCard : public DefenderCardBase
         theLookForwardSkill();
         theWalkToTargetSkill(Pose2f(walkSpeed, walkSpeed, walkSpeed), Pose2f(theFieldBall.positionRelative.angle(), 0.f, 0.f));
       }
-    }
-
-    state(geneticDefense) 
-    {
-      transition
-      {
-        if(!theFieldBall.ballWasSeen(ballNotSeenTimeout))
-          goto turnToBall;
-        if(!theRivalIsCloserToTheBall && closerToTheBall)
-          goto clearingBall;
-        if((theRivalIsCloserToTheBall && theFieldBall.positionRelative.norm() < (400.f) && closerToTheBall)
-        || (numberOfDefences == 1 && state_time > 10000 && theRivalIsCloserToTheBall))
-          goto attackForDefense;
-        if(std::abs(theFieldBall.positionRelative.x()) > 500)
-          goto followFromDistance;
-      }
-
-      action
-      {
-        float ballWeight = 1.2f;
-
-        if(closerToTheBall && state_time > 800 && numberOfDefenders > 1 && theRivalIsCloserToTheBall){
-          if(std::abs(theFieldBall.positionRelative.y()) < -5 && defenderLefter)
-            ballWeight = (float)(ballWeight + (state_time / 1000));
-          if(std::abs(theFieldBall.positionRelative.y()) > 5 && defenderRighter)
-            ballWeight = (float)(ballWeight + (state_time / 1000));
-        }    
-        //if(defenderLefter){
-          //theKeyFrameArmsSkill(ArmKeyFrameRequest::back);
-        //}  
-        //else if(defenderRighter){
-         // theKeyFrameArmsSkill(ArmKeyFrameRequest::back);
-        //}
-        //else
-          //theKeyFrameArmsSkill(ArmKeyFrameRequest::back);
-
-        goto searchForBall;
-      }
-    }
-
-    state(clearingBall)
-    {
-      transition
-      {
-        if(theFieldBall.ballWasSeen(ballNotSeenTimeout))
-          goto searchForBall;
-        if(theRivalIsCloserToTheBall && numberOfDefences > 1 && std::abs(theFieldBall.positionRelative.norm()) < 400.f && closerToTheBall)
-          goto attackForDefense;
-        if(std::abs(theFieldBall.positionRelative.norm()) < 500.f)
-          goto shoot;
-        if(!closerToTheBall || theRivalIsCloserToTheBall)
-          goto geneticDefense;
-      }
-
-      action 
-      {
-        //theKeyFrameArmsSkill(ArmKeyFrameRequest::back);
-        goto searchForBall;
-      }
-    }
-
-    state(attackForDefense)
-    {
-      transition
-      {
-        if(!theFieldBall.ballWasSeen(ballNotSeenTimeout) && !closerToTheBall){
-          theActivitySkill(BehaviorStatus::Defender);
-          goto geneticDefense;
-        }
-      }
-      action
-      {
-      }
-    }
-
-    state(shoot) 
-    {
-      const Angle angleToGoal = calcAngleToGoal();
-      transition
-      {
-        if(theFieldBall.ballWasSeen(ballNotSeenTimeout))
-          goto searchForBall;
-        if(theRivalIsCloserToTheBall && numberOfDefences > 1 && std::abs(theFieldBall.positionRelative.norm()) < 400.f && closerToTheBall)
-          goto attackForDefense;
-        if(std::abs(theFieldBall.positionRelative.norm()) > 600)
-          goto geneticDefense;
-        if(!closerToTheBall)
-          goto geneticDefense;
-      }
-
-      action
-      {
-        Vector2f target = Vector2f(4500.f, 0.f);
-
-        theLookForwardSkill();  
-        theInWalkKickSkill(WalkKickVariant(WalkKicks::forward, Legs::left), Pose2f(angleToGoal, theFieldBall.positionRelative.x() - ballOffsetX, theFieldBall.positionRelative.y() - ballOffsetY));
-      }
-    }
-
-    state(followFromDistance)
-    {
-      transition
-      {
-        if(theFieldBall.ballWasSeen(ballNotSeenTimeout))
-          goto turnToBall;
-        if(theRivalIsCloserToTheBall && numberOfDefences > 1 && std::abs(theFieldBall.positionRelative.norm()) < 400.f && closerToTheBall)
-          goto attackForDefense;
-        if(!theRivalIsCloserToTheBall && closerToTheBall)
-          goto clearingBall;
-        if(std::abs(theFieldBall.positionRelative.x()) < 450)
-          goto geneticDefense;
-      }
-
-      action
-      {
-        theLookForwardSkill();
-
-        Vector2f going2 = {-2000.f,std::abs(theFieldBall.positionRelative.y())};
-
-        if(numberOfDefenders==3){
-          if(defenderLefter && theRobotPose.translation.y() < 2700 && theRobotPose.translation.y() > -1700)
-            going2 = {-3000.f,std::abs(theFieldBall.positionRelative.y()) + 700.f};
-          else if(defenderRighter && theRobotPose.translation.y() > -2700 && theRobotPose.translation.y() < 1700)
-            going2 = {-3000.f, std::abs(theFieldBall.positionRelative.y()) - 700.f};
-        }
-        else {
-          if(defenderLefter && theRobotPose.translation.y() < 2700 && theRobotPose.translation.y() > -1700)
-          going2 = {-2000.f,std::abs(theFieldBall.positionRelative.y())};
-        else if(defenderRighter && theRobotPose.translation.y() > -2700 && theRobotPose.translation.y() < 1700)
-          going2 = {-3000.f, std::abs(theFieldBall.positionRelative.y()) - 700.f};
-        }
-      }
-    }
+    }  
 
     state(walkToBall)
     {
@@ -258,64 +126,6 @@ class DefenderCard : public DefenderCardBase
       }
     }
 
-    state(goBackHome)
-    {
-      transition
-      {
-        if(theFieldBall.ballWasSeen())
-          goto geneticDefense;
-      }
-
-      action
-      {
-        Vector2f going2;
-
-        if(numberOfDefenders == 1)
-          going2 = (Vector2f){-2400,0};
-        //else if(numberOfDefenders == 2)
-         // going2 = (getNumberWithinRole() == 2) ? (Vector2f){-2400,500} : (Vector2f){-2400,-500};
-        //else if(numberOfDefenders == 3)
-          //going2 = (getNumberWithinRole() == 2) ? (Vector2f){-2400,700} : (getNumberWithinRole() == 3) ? (Vector2f){-2400,-700} : (Vector2f){-2400,0};
-      }
-    }
-
-    state(alignToGoal)
-    {
-      const Angle angleToGoal = calcAngleToGoal();
-
-      transition
-      {
-        if(!theFieldBall.ballWasSeen(ballNotSeenTimeout))
-          goto searchForBall;
-        if(std::abs(angleToGoal) < angleToGoalThreshold && std::abs(theFieldBall.positionRelative.y()) < ballYThreshold)
-          goto alignBehindBall;
-      }
-
-      action
-      {
-        theLookForwardSkill();
-        theWalkToTargetSkill(Pose2f(walkSpeed, walkSpeed, walkSpeed), Pose2f(angleToGoal, theFieldBall.positionRelative.x() - ballAlignOffsetX, theFieldBall.positionRelative.y()));
-      }
-    }
-
-    state(alignBehindBall)
-    {
-      const Angle angleToGoal = calcAngleToGoal();
-
-      transition
-      {
-        if(!theFieldBall.ballWasSeen(ballNotSeenTimeout))
-          goto searchForBall;
-        if(std::abs(angleToGoal) < angleToGoalThresholdPrecise && ballOffsetXRange.isInside(theFieldBall.positionRelative.x()) && ballOffsetYRange.isInside(theFieldBall.positionRelative.y()))
-          goto kick;
-      }
-
-      action
-      {
-        theLookForwardSkill();
-        theWalkToTargetSkill(Pose2f(walkSpeed, walkSpeed, walkSpeed), Pose2f(angleToGoal, theFieldBall.positionRelative.x() - ballOffsetX, theFieldBall.positionRelative.y() - ballOffsetY));
-      }
-    }
 
     state(kick)
     {
@@ -339,9 +149,9 @@ class DefenderCard : public DefenderCardBase
       transition
       {
         if(theFieldBall.ballWasSeen())
-          goto turnToBall;
+          goto walkToBall;
         if(!theFieldBall.ballWasSeen(ballNotSeenTimeout))
-          goto goBackHome;  
+          goto turnToBall;  
           
       }
 
